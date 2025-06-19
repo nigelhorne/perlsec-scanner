@@ -123,6 +123,8 @@ if ($format eq 'txt') {
     print "SARIF report saved to $output\n" if $verbose;
 
 } elsif ($format eq 'html') {
+my %severity_order = ( High => 1, Medium => 2, Low => 3 );
+
     open my $out, '>', $output or die "Can't write to $output: $!";
 
     my $summary = join '', map {
@@ -131,11 +133,18 @@ if ($format eq 'txt') {
 
     my $tables = join '', map {
         my $type = $_;
-	my $rows = join '', map {
-	    my ($f, $l, $m, $s) = @$_;
-	    my $class = lc($s || 'medium');
-	    "<tr class=\"$class\"><td>$f</td><td>$l</td><td>$m</td><td>$s</td></tr>"
-	} @{ $grouped{$type} };
+my $rows = join '', map {
+    my ($f, $l, $m, $s) = @$_;
+    my $class = lc($s || 'Medium');
+    "<tr class=\"$class\"><td>$f</td><td>$l</td><td>$m</td><td>$s</td></tr>"
+} sort {
+    ($severity_order{$a->[3] || 'Medium'} <=> $severity_order{$b->[3] || 'Medium'})
+    ||
+    ($a->[0] cmp $b->[0])  # Then sort by filename
+    ||
+    ($a->[1] <=> $b->[1])  # Then by line number
+} @{ $grouped{$type} };
+	
         "<h2>$type</h2><table><thead><tr><th>File</th><th>Line</th><th>Message</th><th>Severity</th></tr></thead><tbody>$rows</tbody></table>"
     } sort keys %grouped;
 
