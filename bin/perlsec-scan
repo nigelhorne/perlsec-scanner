@@ -15,19 +15,21 @@ $dir    = '.';
 $output = 'findings.json';
 $format = 'json';
 my $allowlist_file = 'allowed_modules.txt';
+my $refresh_cache;
 
 GetOptions(
 	'allowlist|a=s' => \$allowlist_file,
 	'input|i=s'   => \$dir,
 	'output|o=s'  => \$output,
 	'format|f=s'  => \$format,
+	'refresh-cache' => \$refresh_cache,
 	'verbose|v!'  => \$verbose,
 	'help|h'      => \$help,
 ) or die 'Error in command-line arguments';
 
 if ($help) {
-    print "Usage: $0 --input <dir> --output <file> --format json|txt|html|sarif [--verbose]\n";
-    exit 0;
+	print "Usage: $0 --input <dir> --output <file> --format json|txt|html|sarif [--verbose]\n";
+	exit 0;
 }
 
 $dir = realpath($dir) or die "Invalid input path: $dir\n";
@@ -52,7 +54,7 @@ find(sub {
     for my $i (0 .. $#lines) {
         check_static_patterns($lines[$i], $file, $i + 1, \@suspect_lines);
         check_regex_patterns($lines[$i], $file, $i + 1, \@suspect_lines);
-        check_module_versions($lines[$i], $file, $i + 1, \@suspect_lines, \%allow);
+        check_module_versions($lines[$i], $file, $i + 1, \@suspect_lines, \%allow, $refresh_cache);
     }
 
 }, $dir);

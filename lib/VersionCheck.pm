@@ -33,7 +33,7 @@ sub load_allowed_versions {
 
 # Check lines like: use Some::Module VERSION;
 sub check_module_versions {
-    my ($line, $file, $lineno, $ref, $allowref) = @_;
+    my ($line, $file, $lineno, $ref, $allowref, $refresh) = @_;
 
     if ($line =~ /^\s*use\s+([\w:]+)(?:\s+([\d\._]+))?/) {
         my ($module, $version) = ($1, $2);
@@ -46,7 +46,7 @@ sub check_module_versions {
             }
         } else {
             # unknown module—ask MetaCPAN
-            my $latest = get_latest_version($module);
+            my $latest = get_latest_version($module, $refresh);
             if ($latest) {
                 push @$ref, [$file, $lineno, "Module $module not in allowlist, latest is $latest", 'UnknownModule', 'Medium'];
             } else {
@@ -58,14 +58,17 @@ sub check_module_versions {
 
 # Cache-aware MetaCPAN lookup
 sub get_latest_version {
-    my $module = shift;
+    my ($module, $refresh) = @_;
     my $now = time;
-    my $cached = $metacpan_cache{$module};
 
-    if ($cached && ($now - ($cached->{timestamp} || 0)) < 7 * 24 * 60 * 60) {
-        return $cached->{version};
+    if (!$refresh) {
+        my $cached = $metacpan_cache{$module};
+        if ($cached && ($now - ($cached->{timestamp} || 0)) < 7 * 24 * 60 * 60) {
+            return $cached->{version};
+        }
     }
 
+    # Else fetch fresh
     my $client = MetaCPAN::Client->new;
     my $ver;
 
@@ -78,8 +81,9 @@ sub get_latest_version {
         };
     };
 
-    return $ver || ($cached ? $cached->{version} : undef);
+    return $ver || ($metacpan_cache{$module} ? $metacpan_cache{$module}{version} : undef);
 }
+
 
 END {
 	store \%metacpan_cache, $cache_file if %metacpan_cache;
