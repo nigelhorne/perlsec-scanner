@@ -1,5 +1,8 @@
 name: Run Perl Tests
 
+permissions:
+  contents: read
+
 on:
   push:
     paths:
