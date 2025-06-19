@@ -12,6 +12,7 @@ PREREQ_PM => {
     'File::Path'          => 2.09,
     'File::Basename'      => 2.85,
     'File::HomeDir'       => 1.006,
+    'IPC::System::Simple' => 0,
     'JSON::MaybeXS'       => 0,
     'MetaCPAN::Client'    => 2.029000,
     'Storable'            => 3.15,

@@ -65,3 +65,33 @@ jobs:
           name: perlsec-findings
           path: findings.json  # or findings.html, etc.
           retention-days: 7    # optional, default is 90
+
+      - name: Annotate PR with PerlSec findings
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const findings = JSON.parse(fs.readFileSync('findings.json', 'utf8'));
+
+            const comments = findings
+              .filter(f => f.file && f.line)
+              .slice(0, 50)  // GitHub limits to ~50 comments per request
+              .map(f => ({
+                path: f.file,
+                line: f.line,
+                body: `🛡️ **PerlSec**: [${f.severity}] ${f.message}`
+              }));
+
+            for (const comment of comments) {
+              await github.rest.pulls.createReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                commit_id: context.payload.pull_request.head.sha,
+                path: comment.path,
+                line: comment.line,
+                side: 'RIGHT',
+                body: comment.body
+              });
+            }
