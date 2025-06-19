@@ -1,0 +1,11 @@
+allowed_modules.txt
+lib/PatternCheck.pm
+lib/RegexCheck.pm
+lib/VersionCheck.pm
+LICENSE
+Makefile.PL
+MANIFEST			This list of files
+MANIFEST.SKIP
+README.md
+t/00-load.t
+t/detect-patterns.t
