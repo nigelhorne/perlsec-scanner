@@ -1,0 +1,53 @@
+---
+name: PerlSec Scanner
+
+on:
+  push:
+    paths:
+      - '**.pl'
+      - 'lib/**'
+      - 't/**'
+      - 'bin/**'
+      - 'Makefile.PL'
+  pull_request:
+    paths:
+      - '**.pl'
+      - 'lib/**'
+      - 't/**'
+      - 'bin/**'
+      - 'Makefile.PL'
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        perl: ['5.36', '5.38']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Perl ${{ matrix.perl }}
+      uses: shogo82148/actions-setup-perl@v1
+      with:
+        perl-version: ${{ matrix.perl }}
+
+    - name: Install dependencies
+      run: |
+        cpanm --quiet --notest --installdeps .
+        cpanm MetaCPAN::Client JSON Test::More
+
+    - name: Run tests
+      run: prove -l t/
+
+    - name: Run PerlSec Scanner
+      run: |
+        mkdir -p scan-out
+        bin/perlsec-scan --input . --output scan-out/perlsec.sarif --format sarif
+
+    - name: Upload SARIF to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: scan-out/perlsec.sarif
