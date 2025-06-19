@@ -12,11 +12,13 @@ use Cwd 'realpath';
 
 # CLI Options
 my ($dir, $output, $format, $help);
+my $verbose = 0;
 GetOptions(
-    'input|i=s'  => \$dir,
-    'output|o=s' => \$output,
-    'format|f=s' => \$format,
-    'help|h'     => \$help,
+    'input|i=s'   => \$dir,
+    'output|o=s'  => \$output,
+    'format|f=s'  => \$format,
+    'verbose|v!'  => \$verbose,
+    'help|h'      => \$help,
 );
 
 # Defaults
@@ -40,8 +42,9 @@ my %allowed = load_allowed_versions('allowed_modules.txt');
 # Scan files
 my @suspect_lines;
 find(sub {
-    return unless /\.pl$/;
+    return unless /\.pl$/i;
     my $file = $File::Find::name;
+    print "[+] Scanning $file\n" if $verbose;
     open my $fh, '<', $file or warn "Can't open $file: $!" and return;
     while (<$fh>) {
         my $line = $_;
@@ -52,6 +55,12 @@ find(sub {
     }
     close $fh;
 }, $dir);
+
+if ($verbose && @suspect_lines) {
+    print "[!] Found ", scalar @suspect_lines, " issues\n";
+} elsif ($verbose) {
+    print "[✓] No issues found in $dir\n";
+}
 
 # Output
 if ($format eq 'json') {
