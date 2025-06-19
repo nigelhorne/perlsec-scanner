@@ -1,10 +1,13 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
+
+use autodie qw(:all);
 use Getopt::Long;
 use File::Find;
 use JSON::MaybeXS;
 use Cwd 'realpath';
+
 use lib './lib';
 use PatternCheck qw(check_static_patterns);
 use RegexCheck   qw(check_regex_patterns);
