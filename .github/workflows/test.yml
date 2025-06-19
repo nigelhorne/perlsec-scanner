@@ -1,0 +1,38 @@
+name: Run Perl Tests
+
+on:
+  push:
+    paths:
+      - '**.pl'
+      - 'lib/**'
+      - 't/**'
+      - 'Makefile.PL'
+  pull_request:
+    paths:
+      - '**.pl'
+      - 'lib/**'
+      - 't/**'
+      - 'Makefile.PL'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        perl: ['5.36', '5.38']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Perl ${{ matrix.perl }}
+      uses: shogo82148/actions-setup-perl@v1
+      with:
+        perl-version: ${{ matrix.perl }}
+
+    - name: Install dependencies
+      run: cpanm --installdeps .
+
+    - name: Run tests
+      run: prove -l t/
