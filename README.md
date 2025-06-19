@@ -37,3 +37,11 @@ Options:
   --verbose, -v             Show detailed progress during scan
   --help, -h                Show usage message
 ```
+
+## GitHub Action Integration
+
+You can integrate the scanner into any repo by using the reusable GitHub Action, defined in `.github/actions/perlsec-scan/action.yml`.
+This lets you scan code on every push or pull request without copying the scanner into each project.
+Simply reference the action in your workflow with `uses: nigelhorne/perlsec-scanner/.github/actions/perlsec-scan@main` and pass optional arguments like `--format html` or `--offline`.
+It will automatically clone the scanner, install dependencies, and execute your configured scan.
+This modular setup ensures your security checks are portable, consistent, and frictionless across multiple Perl projects.
