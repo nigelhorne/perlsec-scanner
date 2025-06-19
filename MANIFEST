@@ -9,5 +9,7 @@ MANIFEST.SKIP
 README.md
 t/00-load.t
 t/detect-patterns.t
+t/eof.t
+t/eol.t
 t/failures.t
 t/integration.t

@@ -213,7 +213,7 @@ options: {
     y: { stacked: true, beginAtZero: true }
   }
 }
-  
+
 });
 </script>
 </body></html>
