@@ -28,7 +28,7 @@ $format ||= 'json';
 
 if ($help) {
     print <<"USAGE";
-Usage: perlsec-scan --input <dir> --output <file> --format <json|txt>
+Usage: perlsec-scan --input <dir> --output <file> --format <html|json|sarif|txt>
 Scans Perl files for insecure patterns, risky regexes, and outdated modules.
 USAGE
     exit 0;
@@ -131,6 +131,70 @@ if ($format eq 'json') {
     print $out encode_json(\%sarif);
     close $out;
     print "SARIF report saved to $output\n" if $verbose;
+} elsif ($format eq 'html') {
+    open my $out, '>', $output or die "Can't write to $output: $!";
+
+    my $issue_rows = join "\n", map {
+        my ($file, $line, $message) = @$_;
+        "<tr><td>$file</td><td>$line</td><td>$message</td></tr>"
+    } @suspect_lines;
+
+    my $count = scalar @suspect_lines;
+
+    print $out <<"HTML";
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PerlSec Scan Report</title>
+  <style>
+    body { font-family: sans-serif; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px; }
+    th { background: #eee; }
+    .summary { margin-top: 1em; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>PerlSec Scan Report</h1>
+  <div class="summary">$count issues found</div>
+
+  <canvas id="chart" height="100"></canvas>
+
+  <table>
+    <thead>
+      <tr><th>File</th><th>Line</th><th>Message</th></tr>
+    </thead>
+    <tbody>
+      $issue_rows
+    </tbody>
+  </table>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const data = {
+      labels: ["Security Issues"],
+      datasets: [{
+        label: "Findings",
+        data: [$count],
+        backgroundColor: ["#d9534f"]
+      }]
+    };
+    new Chart(document.getElementById('chart'), {
+      type: 'bar',
+      data: data,
+      options: {
+        responsive: false,
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  </script>
+</body>
+</html>
+HTML
+
+    close $out;
+    print "HTML report saved to $output\n" if $verbose;
 } else {
     die "Unknown format: $format\n";
 }
