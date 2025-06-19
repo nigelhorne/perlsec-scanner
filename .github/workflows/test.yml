@@ -5,12 +5,14 @@ on:
     paths:
       - '**.pl'
       - 'lib/**'
+      - 'bin/**'
       - 't/**'
       - 'Makefile.PL'
   pull_request:
     paths:
       - '**.pl'
       - 'lib/**'
+      - 'bin/**'
       - 't/**'
       - 'Makefile.PL'
 

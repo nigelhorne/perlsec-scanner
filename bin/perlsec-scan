@@ -55,10 +55,20 @@ find(sub {
 
 # Output
 if ($format eq 'json') {
-    open my $out, '>', $output or die "Can't write to $output: $!";
-    print $out encode_json(\@suspect_lines);
-    close $out;
-    print "Results saved to $output\n";
+	open my $out, '>', $output or die "Can't write to $output: $!";
+	my @results;
+	for my $entry (@suspect_lines) {
+		my ($file, $line_no, $desc) = @$entry;
+		push @results, {
+			file    => $file,
+			line    => $line_no,
+			message => $desc,
+		};
+	}
+	print $out encode_json(\@results);
+
+	close $out;
+	print "Results saved to $output\n";
 } elsif ($format eq 'txt') {
     open my $out, '>', $output or die "Can't write to $output: $!";
     for (@suspect_lines) {

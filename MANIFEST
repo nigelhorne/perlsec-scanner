@@ -9,3 +9,4 @@ MANIFEST.SKIP
 README.md
 t/00-load.t
 t/detect-patterns.t
+t/integration.t
