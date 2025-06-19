@@ -1,43 +1,79 @@
 package VersionCheck;
+
+use strict;
+use warnings;
+use MetaCPAN::Client;
+use File::Spec;
+use File::Path qw(make_path);
+use File::HomeDir;
+use Storable qw(retrieve store);
 use Exporter 'import';
+
 our @EXPORT_OK = qw(check_module_versions load_allowed_versions);
 
-use MetaCPAN::Client;
+my $cache_dir  = File::Spec->catdir(File::HomeDir->my_home, '.cache', 'perlsec-scanner');
+make_path($cache_dir) unless -d $cache_dir;
 
+my $cache_file = File::Spec->catfile($cache_dir, 'meta_cache.stor');
+my %metacpan_cache = -e $cache_file ? %{ retrieve($cache_file) } : ();
+
+# Load allowed modules and their min versions from a file
 sub load_allowed_versions {
-my $file = shift || 'allowed_modules.txt';
+    my $file = shift || 'allowed_modules.txt';
     open my $fh, '<', $file or die "Can't open allowlist $file: $!";
-    my %versions;
+    my %allow;
     while (<$fh>) {
-        my ($mod, $ver) = split;
-        $versions{$mod} = $ver;
+        next if /^\s*#/;
+        my ($mod, $ver) = split /\s+/, $_;
+        $allow{$mod} = $ver if $mod && $ver;
     }
     close $fh;
-    return %versions;
+    return %allow;
 }
 
+# Check lines like: use Some::Module VERSION;
 sub check_module_versions {
-    my ($line, $file, $line_no, $ref, $allowed_ref) = @_;
-    my $cpan = MetaCPAN::Client->new();
+    my ($line, $file, $lineno, $ref, $allowref) = @_;
 
-    if ($line =~ /^\s*use\s+([\w:]+)\s*(\d+(\.\d+)*)?/) {
-        my ($module, $ver) = ($1, $2 || '0');
+    if ($line =~ /^\s*use\s+([\w:]+)(?:\s+([\d\._]+))?/) {
+        my ($module, $version) = ($1, $2);
+        return unless $module;
 
-        if (!exists $allowed_ref->{$module}) {
-            push @$ref, [$file, $line_no, "Unknown module '$module' used", 'VersionCheck', 'Low'];
-        } elsif ($ver < $allowed_ref->{$module}) {
-            push @$ref, [$file, $line_no, "Outdated '$module' version $ver (expected $allowed_ref->{$module})", 'VersionCheck', 'Low'];
-        }
-
-        eval {
-            my $release = $cpan->release($module);
-            my $latest  = $release->version;
-            if ($latest && $ver < $latest) {
-                push @$ref, [$file, $line_no, "Live CPAN check: '$module' version $ver is older than latest $latest", 'VersionCheck', 'Low'];
+        my $allowed_ver = $allowref->{$module};
+        if (defined $allowed_ver) {
+            if ($version && $version < $allowed_ver) {
+                push @$ref, [$file, $lineno, "Outdated module: $module $version < allowed $allowed_ver", 'VersionTooLow', 'Medium'];
             }
-        };
-        warn "MetaCPAN error: $@" if $@;
+        } else {
+            # unknown module—ask MetaCPAN
+            my $latest = get_latest_version($module);
+            if ($latest) {
+                push @$ref, [$file, $lineno, "Module $module not in allowlist, latest is $latest", 'UnknownModule', 'Medium'];
+            } else {
+                push @$ref, [$file, $lineno, "Module $module not in allowlist and not found in MetaCPAN", 'UnknownModule', 'Low'];
+            }
+        }
     }
+}
+
+# Cache-aware MetaCPAN lookup
+sub get_latest_version {
+    my $module = shift;
+    return $metacpan_cache{$module} if exists $metacpan_cache{$module};
+
+    my $client = MetaCPAN::Client->new;
+    my $ver;
+
+    eval {
+        my $release = $client->release({ name => $module });
+        $ver = $release->version;
+        $metacpan_cache{$module} = $ver;
+    };
+    return $ver;
+}
+
+END {
+	store \%metacpan_cache, $cache_file if %metacpan_cache;
 }
 
 1;
