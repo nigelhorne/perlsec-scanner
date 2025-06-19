@@ -84,6 +84,25 @@ sub get_latest_version {
     return $ver || ($metacpan_cache{$module} ? $metacpan_cache{$module}{version} : undef);
 }
 
+sub list_cache_status {
+    return unless %metacpan_cache;
+
+    print "📦 MetaCPAN Cache Status:\n";
+    for my $mod (sort keys %metacpan_cache) {
+        my $entry = $metacpan_cache{$mod};
+        my $age   = time - ($entry->{timestamp} || 0);
+        my $ago   = format_duration($age);
+        printf "  %-25s version %-7s cached %s ago\n", $mod, $entry->{version}, $ago;
+    }
+}
+
+sub format_duration {
+    my $sec = shift;
+    return sprintf "%.1fd", $sec / 86400 if $sec >= 86400;
+    return sprintf "%.1fh", $sec / 3600  if $sec >= 3600;
+    return sprintf "%.1fm", $sec / 60    if $sec >= 60;
+    return "${sec}s";
+}
 
 END {
 	store \%metacpan_cache, $cache_file if %metacpan_cache;

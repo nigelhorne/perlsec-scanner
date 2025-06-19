@@ -10,7 +10,7 @@ use PatternCheck qw(check_static_patterns);
 use RegexCheck   qw(check_regex_patterns);
 use VersionCheck qw(check_module_versions load_allowed_versions);
 
-my ($dir, $output, $format, $help, $verbose, $refresh_cache, $cache_ttl_str);
+my ($dir, $output, $format, $help, $verbose, $refresh_cache, $cache_ttl_str, $show_cache_status);
 $dir    = '.';
 $output = 'findings.json';
 $format = 'json';
@@ -23,6 +23,7 @@ GetOptions(
 	'format|f=s'  => \$format,
 	'refresh-cache' => \$refresh_cache,
 	'cache-ttl=s'   => \$cache_ttl_str,
+	'show-cache-status' => \$show_cache_status,
 	'verbose|v!'  => \$verbose,
 	'help|h'      => \$help,
 ) or die 'Error in command-line arguments';
@@ -32,16 +33,23 @@ if ($help) {
 Usage: perlsec-scan [options]
 
 Options:
-  --input, -i <dir>       Input directory to scan (default: .)
-  --output, -o <file>     Output file for report (default: findings.json)
-  --format, -f <format>   Output format: json | txt | html | sarif (default: json)
-  --allowlist, -a <file>  Allowlist of approved modules/versions (default: allowed_modules.txt)
-  --cache-ttl <ttl>       Cache time-to-live (e.g. 7d, 6h, 30m). Default: 7d
-  --refresh-cache         Force refresh of MetaCPAN cache (ignores TTL)
-  --verbose, -v           Verbose output during scanning
-  --help, -h              Show this help message
+  --input, -i <dir>         Input directory to scan (default: .)
+  --output, -o <file>       Output file for report (default: findings.json)
+  --format, -f <format>     Output format: json | txt | html | sarif (default: json)
+  --allowlist, -a <file>    Allowlist of approved modules/versions (default: allowed_modules.txt)
+  --cache-ttl <N[smhd]>     Cache time-to-live (e.g. 7d = 7 days, 6h = 6 hours, 30m = 30 minutes).
+                            Default is 7d
+  --refresh-cache           Force MetaCPAN lookups even if cache is valid
+  --show-cache-status       Display current cache entries with age and versions
+  --verbose, -v             Show detailed progress during scan
+  --help, -h                Show this help message
 EOF
 
+	exit 0;
+}
+
+if ($show_cache_status) {
+	VersionCheck::list_cache_status();
 	exit 0;
 }
 
