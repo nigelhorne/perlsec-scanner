@@ -51,6 +51,6 @@ jobs:
         bin/perlsec-scan --input . --output scan-out/perlsec.sarif --format sarif
 
     - name: Upload SARIF to GitHub Security
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: scan-out/perlsec.sarif
