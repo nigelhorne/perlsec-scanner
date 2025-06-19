@@ -59,7 +59,12 @@ sub check_module_versions {
 # Cache-aware MetaCPAN lookup
 sub get_latest_version {
     my $module = shift;
-    return $metacpan_cache{$module} if exists $metacpan_cache{$module};
+    my $now = time;
+    my $cached = $metacpan_cache{$module};
+
+    if ($cached && ($now - ($cached->{timestamp} || 0)) < 7 * 24 * 60 * 60) {
+        return $cached->{version};
+    }
 
     my $client = MetaCPAN::Client->new;
     my $ver;
@@ -67,9 +72,13 @@ sub get_latest_version {
     eval {
         my $release = $client->release({ name => $module });
         $ver = $release->version;
-        $metacpan_cache{$module} = $ver;
+        $metacpan_cache{$module} = {
+            version   => $ver,
+            timestamp => $now,
+        };
     };
-    return $ver;
+
+    return $ver || ($cached ? $cached->{version} : undef);
 }
 
 END {
