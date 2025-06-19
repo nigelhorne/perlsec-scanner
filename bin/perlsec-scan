@@ -1,4 +1,7 @@
 #!/usr/bin/env perl
+
+# TODO: Tailwind support
+
 use strict;
 use warnings;
 
@@ -10,18 +13,18 @@ use Cwd 'realpath';
 
 use lib './lib';
 use PatternCheck qw(check_static_patterns);
-use RegexCheck   qw(check_regex_patterns);
+use RegexCheck qw(check_regex_patterns);
 use VersionCheck qw(check_module_versions load_allowed_versions);
 
 my ($dir, $output, $format, $help, $verbose, $refresh_cache, $cache_ttl_str, $show_cache_status, $offline_mode);
-$dir    = '.';
+$dir = '.';
 $output = 'findings.json';
 $format = 'json';
 my $allowlist_file = 'allowed_modules.txt';
 
 GetOptions(
 	'allowlist|a=s' => \$allowlist_file,
-	'input|i=s'   => \$dir,
+	'input|i=s'	=> \$dir,
 	'offline' => \$offline_mode,
 	'output|o=s'  => \$output,
 	'format|f=s'  => \$format,
@@ -226,6 +229,7 @@ my ($file, $line, $msg, $severity, $type) = @$_;
 <html><head>
   <meta charset="UTF-8">
   <title>PerlSec Report</title>
+<!-- <script src="https://cdn.tailwindcss.com"></script> -->
   <style>
     body { font-family: sans-serif; }
     h1 { margin-top: 0 }
@@ -239,9 +243,17 @@ my ($file, $line, $msg, $severity, $type) = @$_;
 </head><body>
 <h1>PerlSec Scan Report</h1>
 <h2>Summary</h2>
-<table><thead><tr><th>Type</th><th>Count</th></tr></thead><tbody>
-$summary
-</tbody></table>
+
+<table class="min-w-full text-sm text-left text-gray-700 border border-gray-300 shadow-sm">
+  <thead class="bg-gray-100 text-xs uppercase font-semibold text-gray-600 border-b">
+    <tr>
+      <th class="px-4 py-2">Type</th>
+      <th class="px-4 py-2">Count</th>
+  </thead>
+  <tbody>
+    $summary
+  </tbody>
+</table>
 
 <div style="max-height: 400px;">
   <canvas id="chart"></canvas>

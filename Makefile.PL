@@ -20,8 +20,6 @@ PREREQ_PM => {
     'Term::ANSIColor'     => 5.01,        # optional, if terminal color used
     'Exporter'            => 5.73,        # for Exporter 'import'
     'Test::More'          => 1.302183,    # if tests included
-},
-    
-    ABSTRACT     => 'Static security scanner for Perl code',
+}, ABSTRACT     => 'Static security scanner for Perl code',
     AUTHOR       => 'Nigel Horne <njh@nigelhorne.com>'
 );
