@@ -170,6 +170,14 @@ if ($format eq 'txt') {
 
 } elsif ($format eq 'html') {
 my %severity_order = ( High => 1, Medium => 2, Low => 3 );
+my %rule_docs = (
+  'EvalInjection'    => 'https://yourscanner.dev/docs/eval-injection',
+  'CommandInjection' => 'https://yourscanner.dev/docs/command-injection',
+  'ReDoS'            => 'https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service',
+  'UnknownModule'    => 'https://metacpan.org/',
+  'VersionTooLow'    => 'https://yourscanner.dev/docs/version-policy',
+);
+
 
     open my $out, '>', $output or die "Can't write to $output: $!";
 
@@ -180,9 +188,13 @@ my %severity_order = ( High => 1, Medium => 2, Low => 3 );
     my $tables = join '', map {
         my $type = $_;
 my $rows = join '', map {
-    my ($f, $l, $m, $s) = @$_;
-    my $class = lc($s || 'Medium');
-    "<tr class=\"$class\"><td>$f</td><td>$l</td><td>$m</td><td>$s</td></tr>"
+my ($file, $line, $msg, $severity, $type) = @$_;
+    my $class = lc($severity || 'Medium');
+    $type ||= 'Unknown';
+    my $url = $rule_docs{$type} || '#';
+  my $rule_html = qq{<a href="$url" target="_blank" rel="noopener noreferrer">$type</a>};
+
+  "<tr class=\"$class\"><td>$file</td><td>$line</td><td>$msg</td><td>$severity</td><td>$rule_html</td></tr>";
 } sort {
     ($severity_order{$a->[3] || 'Medium'} <=> $severity_order{$b->[3] || 'Medium'})
     ||
@@ -191,7 +203,7 @@ my $rows = join '', map {
     ($a->[1] <=> $b->[1])  # Then by line number
 } @{ $grouped{$type} };
 
-        "<h2>$type</h2><table><thead><tr><th>File</th><th>Line</th><th>Message</th><th>Severity</th></tr></thead><tbody>$rows</tbody></table>"
+        "<h2>$type</h2><table><thead><tr><th>File</th><th>Line</th><th>Message</th><th>Severity</th><th>Rule></th></tr></thead><tbody>$rows</tbody></table>"
     } sort keys %grouped;
 
     my @files = sort keys %{{ map { $_->[0] => 1 } @suspect_lines }};
