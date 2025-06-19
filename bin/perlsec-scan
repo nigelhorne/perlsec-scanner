@@ -60,9 +60,10 @@ find(sub {
 # Group by type if available
 my %grouped;
 for my $entry (@suspect_lines) {
-    my ($file, $line, $msg, $type) = @$entry;
-    $type ||= 'Uncategorized';
-    push @{ $grouped{$type} }, [$file, $line, $msg];
+    my ($file, $line, $msg, $type, $severity) = @$entry;
+    $type     ||= 'Uncategorized';
+    $severity ||= 'Medium';
+    push @{ $grouped{$type} }, [$file, $line, $msg, $severity];
 }
 
 # Output
@@ -130,10 +131,12 @@ if ($format eq 'txt') {
 
     my $tables = join '', map {
         my $type = $_;
-        my $rows = join '', map {
-            "<tr><td>$_->[0]</td><td>$_->[1]</td><td>$_->[2]</td></tr>"
-        } @{ $grouped{$type} };
-        "<h2>$type</h2><table><thead><tr><th>File</th><th>Line</th><th>Message</th></tr></thead><tbody>$rows</tbody></table>"
+	my $rows = join '', map {
+	    my ($f, $l, $m, $s) = @$_;
+	    my $class = lc($s || 'medium');
+	    "<tr class=\"$class\"><td>$f</td><td>$l</td><td>$m</td><td>$s</td></tr>"
+	} @{ $grouped{$type} };
+        "<h2>$type</h2><table><thead><tr><th>File</th><th>Line</th><th>Message</th><th>Severity</th></tr></thead><tbody>$rows</tbody></table>"
     } sort keys %grouped;
 
     my @files = sort keys %{{ map { $_->[0] => 1 } @suspect_lines }};
@@ -162,6 +165,9 @@ if ($format eq 'txt') {
     table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
     th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
     th { background: #eee; }
+.low     { background-color: #e0f7e0; }  /* greenish */
+.medium  { background-color: #fff8e1; }  /* yellowish */
+.high    { background-color: #fce4ec; }  /* reddish */
   </style>
 </head><body>
 <h1>PerlSec Scan Report</h1>
@@ -172,6 +178,12 @@ $summary
 
 <div style="max-height: 400px;">
   <canvas id="chart"></canvas>
+</div>
+
+<div><strong>Severity legend:</strong>
+  <span style="background-color:#fce4ec; padding:2px 6px;">High</span>
+  <span style="background-color:#fff8e1; padding:2px 6px;">Medium</span>
+  <span style="background-color:#e0f7e0; padding:2px 6px;">Low</span>
 </div>
 
 $tables

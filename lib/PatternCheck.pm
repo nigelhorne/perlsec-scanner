@@ -13,7 +13,7 @@ sub check_static_patterns {
          \$ENV{|                # environment vars
          \b(param|input)\b      # unsanitized user input
     )/x) {
-        push @$ref, [$file, $line_no, "Insecure pattern: $line", 'PatternCheck'];
+        push @$ref, [$file, $line_no, "Insecure pattern: $line", 'PatternCheck', 'Medium'];
     }
 }
 1;
