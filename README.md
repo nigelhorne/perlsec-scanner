@@ -49,6 +49,19 @@ This modular setup ensures your security checks are portable, consistent, and fr
 ### Example
 
 ```yaml
+---
+name: Perl Security Scanner
+permissions:
+  contents: read
+  security-events: write
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+
 - uses: nigelhorne/perlsec-scanner/.github/actions/perlsec-scan@main
   with:
     args: "--format html --output findings.html"
@@ -74,7 +87,7 @@ This modular setup ensures your security checks are portable, consistent, and fr
       });
 
       // Update if an existing PerlSec comment is found, otherwise create a new one
-      const existingComment = comments.find(c => c.body.includes('### ⚠️ PerlSec Findings'));
+      const existingComment = comments.find(c => c.body.includes('### PerlSec Findings'));
       if (existingComment) {
         await github.rest.issues.updateComment({
           owner,
