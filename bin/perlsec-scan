@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Getopt::Long;
 use File::Find;
-use JSON;
+use JSON::MaybeXS;
 use Cwd 'realpath';
 use lib './lib';
 use PatternCheck qw(check_static_patterns);

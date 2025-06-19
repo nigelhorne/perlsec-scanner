@@ -40,7 +40,7 @@ jobs:
     - name: Install dependencies
       run: |
         cpanm --quiet --notest --installdeps .
-        cpanm MetaCPAN::Client JSON Test::More Test::DescribeMe
+        cpanm MetaCPAN::Client JSON::MaybeXS Test::More Test::DescribeMe
 
     - name: Run tests
       run: prove -l t/
