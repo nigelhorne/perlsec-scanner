@@ -26,6 +26,7 @@ bin/perlsec-scan [OPTIONS]
 
 Options:
   --input, -i <dir>         Input directory to scan (default: .)
+  --offline                 Skip MetaCPAN queries; rely only on allowlist and cache
   --output, -o <file>       Output file for report (default: findings.json)
   --format, -f <format>     Output format: json | txt | html | sarif (default: json)
   --allowlist, -a <file>    Allowlist of approved modules/versions (default: allowed_modules.txt)

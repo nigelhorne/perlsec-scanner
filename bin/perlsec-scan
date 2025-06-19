@@ -10,7 +10,7 @@ use PatternCheck qw(check_static_patterns);
 use RegexCheck   qw(check_regex_patterns);
 use VersionCheck qw(check_module_versions load_allowed_versions);
 
-my ($dir, $output, $format, $help, $verbose, $refresh_cache, $cache_ttl_str, $show_cache_status);
+my ($dir, $output, $format, $help, $verbose, $refresh_cache, $cache_ttl_str, $show_cache_status, $offline_mode);
 $dir    = '.';
 $output = 'findings.json';
 $format = 'json';
@@ -19,6 +19,7 @@ my $allowlist_file = 'allowed_modules.txt';
 GetOptions(
 	'allowlist|a=s' => \$allowlist_file,
 	'input|i=s'   => \$dir,
+	'offline' => \$offline_mode,
 	'output|o=s'  => \$output,
 	'format|f=s'  => \$format,
 	'refresh-cache' => \$refresh_cache,
@@ -39,6 +40,7 @@ Options:
   --allowlist, -a <file>    Allowlist of approved modules/versions (default: allowed_modules.txt)
   --cache-ttl <N[smhd]>     Cache time-to-live (e.g. 7d = 7 days, 6h = 6 hours, 30m = 30 minutes).
                             Default is 7d
+  --offline                 Skip MetaCPAN queries; rely only on allowlist and cache
   --refresh-cache           Force MetaCPAN lookups even if cache is valid
   --show-cache-status       Display current cache entries with age and versions
   --verbose, -v             Show detailed progress during scan
@@ -93,7 +95,7 @@ find(sub {
     for my $i (0 .. $#lines) {
         check_static_patterns($lines[$i], $file, $i + 1, \@suspect_lines);
         check_regex_patterns($lines[$i], $file, $i + 1, \@suspect_lines);
-        check_module_versions($lines[$i], $file, $i + 1, \@suspect_lines, \%allow, $cache_ttl, $refresh_cache);
+        check_module_versions($lines[$i], $file, $i + 1, \@suspect_lines, \%allow, $cache_ttl, $refresh_cache, $offline_mode);
     }
 
 }, $dir);
