@@ -10,7 +10,7 @@ use PatternCheck qw(check_static_patterns);
 use RegexCheck   qw(check_regex_patterns);
 use VersionCheck qw(check_module_versions load_allowed_versions);
 
-my ($dir, $output, $format, $help, $verbose, $refresh_cache, $cache_ttl);
+my ($dir, $output, $format, $help, $verbose, $refresh_cache, $cache_ttl_str);
 $dir    = '.';
 $output = 'findings.json';
 $format = 'json';
@@ -22,15 +22,43 @@ GetOptions(
 	'output|o=s'  => \$output,
 	'format|f=s'  => \$format,
 	'refresh-cache' => \$refresh_cache,
-	'cache-ttl=i'   => \$cache_ttl,
+	'cache-ttl=s'   => \$cache_ttl_str,
 	'verbose|v!'  => \$verbose,
 	'help|h'      => \$help,
 ) or die 'Error in command-line arguments';
 
 if ($help) {
-	print "Usage: $0 --input <dir> --output <file> --format json|txt|html|sarif [--verbose]\n";
+	print << 'EOF';
+Usage: perlsec-scan [options]
+
+Options:
+  --input, -i <dir>       Input directory to scan (default: .)
+  --output, -o <file>     Output file for report (default: findings.json)
+  --format, -f <format>   Output format: json | txt | html | sarif (default: json)
+  --allowlist, -a <file>  Allowlist of approved modules/versions (default: allowed_modules.txt)
+  --cache-ttl <ttl>       Cache time-to-live (e.g. 7d, 6h, 30m). Default: 7d
+  --refresh-cache         Force refresh of MetaCPAN cache (ignores TTL)
+  --verbose, -v           Verbose output during scanning
+  --help, -h              Show this help message
+EOF
+
 	exit 0;
 }
+
+my %unit_multipliers = (
+    s => 1,
+    m => 60,
+    h => 3600,
+    d => 86400,
+);
+
+$cache_ttl_str ||= '7d';
+
+my ($num, $unit) = $cache_ttl_str =~ /^(\d+)([smhd])$/i;
+die "Invalid --cache-ttl format. Use number + unit (s/m/h/d)\n"
+    unless defined $num && defined $unit;
+
+my $cache_ttl = $num * $unit_multipliers{lc $unit};
 
 # Default to 7 days if not provided
 $cache_ttl = $refresh_cache ? 0 : ($cache_ttl // 604800);  # 7 * 24 * 60 * 60
@@ -149,7 +177,7 @@ my $rows = join '', map {
     ||
     ($a->[1] <=> $b->[1])  # Then by line number
 } @{ $grouped{$type} };
-	
+
         "<h2>$type</h2><table><thead><tr><th>File</th><th>Line</th><th>Message</th><th>Severity</th></tr></thead><tbody>$rows</tbody></table>"
     } sort keys %grouped;
 
