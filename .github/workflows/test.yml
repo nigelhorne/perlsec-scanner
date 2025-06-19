@@ -1,3 +1,4 @@
+---
 name: Run Perl Tests
 
 permissions:
@@ -5,19 +6,11 @@ permissions:
 
 on:
   push:
-    paths:
-      - '**.pl'
-      - 'lib/**'
-      - 'bin/**'
-      - 't/**'
-      - 'Makefile.PL'
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
   pull_request:
-    paths:
-      - '**.pl'
-      - 'lib/**'
-      - 'bin/**'
-      - 't/**'
-      - 'Makefile.PL'
 
 jobs:
   build:
@@ -28,18 +21,18 @@ jobs:
         perl: ['5.36', '5.38']
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Perl ${{ matrix.perl }}
-      uses: shogo82148/actions-setup-perl@v1
-      with:
-        perl-version: ${{ matrix.perl }}
+      - name: Set up Perl ${{ matrix.perl }}
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
 
-    - name: Install dependencies
-      run: |
-        cpanm --installdeps .
-        cpanm --iqn Test::DescribeMe
+      - name: Install dependencies
+        run: |
+          cpanm --installdeps .
+          cpanm --iqn Test::DescribeMe
 
-    - name: Run tests
-      run: prove -l t/
+      - name: Run tests
+        run: prove -l t/
