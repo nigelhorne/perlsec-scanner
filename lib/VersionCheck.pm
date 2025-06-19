@@ -24,16 +24,16 @@ sub check_module_versions {
         my ($module, $ver) = ($1, $2 || '0');
 
         if (!exists $allowed_ref->{$module}) {
-            push @$ref, [$file, $line_no, "Unknown module '$module' used"];
+            push @$ref, [$file, $line_no, "Unknown module '$module' used", 'VersionCheck'];
         } elsif ($ver < $allowed_ref->{$module}) {
-            push @$ref, [$file, $line_no, "Outdated '$module' version $ver (expected $allowed_ref->{$module})"];
+            push @$ref, [$file, $line_no, "Outdated '$module' version $ver (expected $allowed_ref->{$module})", 'VersionCheck'];
         }
 
         eval {
             my $release = $cpan->release($module);
             my $latest  = $release->version;
             if ($latest && $ver < $latest) {
-                push @$ref, [$file, $line_no, "Live CPAN check: '$module' version $ver is older than latest $latest"];
+                push @$ref, [$file, $line_no, "Live CPAN check: '$module' version $ver is older than latest $latest", 'VersionCheck'];
             }
         };
         warn "MetaCPAN error: $@" if $@;

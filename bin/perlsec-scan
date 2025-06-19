@@ -141,6 +141,42 @@ if ($format eq 'json') {
 
     my $count = scalar @suspect_lines;
 
+my %grouped;
+for my $entry (@suspect_lines) {
+    my ($file, $line, $msg, $type) = @$entry;
+    $type ||= 'Uncategorized';
+    push @{ $grouped{$type} }, [$file, $line, $msg];
+}
+
+my $issue_sections = join "\n", map {
+    my $type = $_;
+    my $rows = join "\n", map {
+        my ($f, $l, $m) = @$_;
+        "<tr><td>$f</td><td>$l</td><td>$m</td></tr>"
+    } @{ $grouped{$type} };
+
+    <<"HTML"
+<h2>$type</h2>
+<table>
+  <thead><tr><th>File</th><th>Line</th><th>Message</th></tr></thead>
+  <tbody>$rows</tbody>
+</table>
+HTML
+} sort keys %grouped;
+
+my $summary_table = join '', map {
+    my $count = scalar @{ $grouped{$_} };
+    "<tr><td>$_</td><td>$count</td></tr>"
+} sort keys %grouped;
+
+$summary_table = <<"HTML";
+<h2>Summary</h2>
+<table>
+  <thead><tr><th>Issue Type</th><th>Count</th></tr></thead>
+  <tbody>$summary_table</tbody>
+</table>
+HTML
+
     print $out <<"HTML";
 <!DOCTYPE html>
 <html>
@@ -161,14 +197,8 @@ if ($format eq 'json') {
 
   <canvas id="chart" height="100"></canvas>
 
-  <table>
-    <thead>
-      <tr><th>File</th><th>Line</th><th>Message</th></tr>
-    </thead>
-    <tbody>
-      $issue_rows
-    </tbody>
-  </table>
+  $summary_table
+  $issue_sections
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
