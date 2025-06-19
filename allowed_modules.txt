@@ -1,0 +1,5 @@
+strict 1.11
+warnings 1.42
+DBI 1.643
+CGI 4.52
+File::Spec 3.78

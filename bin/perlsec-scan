@@ -1,0 +1,72 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use Getopt::Long;
+use File::Find;
+use JSON;
+use lib './lib';
+use RegexCheck qw(check_regex_danger);
+use VersionCheck qw(check_module_versions load_allowed_versions);
+use PatternCheck qw(check_static_patterns);
+use Cwd 'realpath';
+
+# CLI Options
+my ($dir, $output, $format, $help);
+GetOptions(
+    'input|i=s'  => \$dir,
+    'output|o=s' => \$output,
+    'format|f=s' => \$format,
+    'help|h'     => \$help,
+);
+
+# Defaults
+$dir    ||= '.';
+$output ||= 'findings.json';
+$format ||= 'json';
+
+if ($help) {
+    print <<"USAGE";
+Usage: perlsec-scan --input <dir> --output <file> --format <json|txt>
+Scans Perl files for insecure patterns, risky regexes, and outdated modules.
+USAGE
+    exit 0;
+}
+
+$dir = realpath($dir) or die "Invalid input path: $dir";
+
+# Load version allowlist
+my %allowed = load_allowed_versions('allowed_modules.txt');
+
+# Scan files
+my @suspect_lines;
+find(sub {
+    return unless /\.pl$/;
+    my $file = $File::Find::name;
+    open my $fh, '<', $file or warn "Can't open $file: $!" and return;
+    while (<$fh>) {
+        my $line = $_;
+        my $ln   = $.;
+        check_static_patterns($line, $file, $ln, \@suspect_lines);
+        check_regex_danger($line, $file, $ln, \@suspect_lines);
+        check_module_versions($line, $file, $ln, \@suspect_lines, \%allowed);
+    }
+    close $fh;
+}, $dir);
+
+# Output
+if ($format eq 'json') {
+    open my $out, '>', $output or die "Can't write to $output: $!";
+    print $out encode_json(\@suspect_lines);
+    close $out;
+    print "Results saved to $output\n";
+} elsif ($format eq 'txt') {
+    open my $out, '>', $output or die "Can't write to $output: $!";
+    for (@suspect_lines) {
+        my ($file, $line, $msg) = @$_;
+        print $out "$file [$line]: $msg\n";
+    }
+    close $out;
+    print "Text report saved to $output\n";
+} else {
+    die "Unknown format: $format\n";
+}
