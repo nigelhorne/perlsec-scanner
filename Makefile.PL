@@ -14,5 +14,5 @@ WriteMakefile(
         'Cwd'                => 0,
     },
     ABSTRACT     => 'Static security scanner for Perl code',
-    AUTHOR       => 'Nigel Horne <njh@nigelhorne.com>
+    AUTHOR       => 'Nigel Horne <njh@nigelhorne.com>'
 );
