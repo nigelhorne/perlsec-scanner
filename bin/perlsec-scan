@@ -4,143 +4,60 @@ use warnings;
 use Getopt::Long;
 use File::Find;
 use JSON;
-use lib './lib';
-use RegexCheck qw(check_regex_danger);
-use VersionCheck qw(check_module_versions load_allowed_versions);
-use PatternCheck qw(check_static_patterns);
 use Cwd 'realpath';
+use lib './lib';
+use PatternCheck qw(check_static_patterns);
+use RegexCheck   qw(check_regex_patterns);
+use VersionCheck qw(check_module_versions load_allowed_versions);
 
-# CLI Options
-my ($dir, $output, $format, $help);
-my $verbose = 0;
+my ($dir, $output, $format, $help, $verbose);
+$dir    = '.';
+$output = 'findings.json';
+$format = 'json';
+my $allowlist_file = 'allowed_modules.txt';
+
 GetOptions(
-    'input|i=s'   => \$dir,
-    'output|o=s'  => \$output,
-    'format|f=s'  => \$format,
-    'verbose|v!'  => \$verbose,
-    'help|h'      => \$help,
-);
-
-# Defaults
-$dir    ||= '.';
-$output ||= 'findings.json';
-$format ||= 'json';
+	'allowlist|a=s' => \$allowlist_file,
+	'input|i=s'   => \$dir,
+	'output|o=s'  => \$output,
+	'format|f=s'  => \$format,
+	'verbose|v!'  => \$verbose,
+	'help|h'      => \$help,
+) or die 'Error in command-line arguments';
 
 if ($help) {
-    print <<"USAGE";
-Usage: perlsec-scan --input <dir> --output <file> --format <html|json|sarif|txt>
-Scans Perl files for insecure patterns, risky regexes, and outdated modules.
-USAGE
+    print "Usage: $0 --input <dir> --output <file> --format json|txt|html|sarif [--verbose]\n";
     exit 0;
 }
 
-$dir = realpath($dir) or die "Invalid input path: $dir";
+$dir = realpath($dir) or die "Invalid input path: $dir\n";
+$allowlist_file = realpath($allowlist_file);
 
-# Load version allowlist
-my %allowed = load_allowed_versions('allowed_modules.txt');
-
-# Scan files
 my @suspect_lines;
+
 find(sub {
-    return unless /\.pl$/i;
+    return unless /\.pl$/;
     my $file = $File::Find::name;
     print "[+] Scanning $file\n" if $verbose;
-    open my $fh, '<', $file or warn "Can't open $file: $!" and return;
-    while (<$fh>) {
-        my $line = $_;
-        my $ln   = $.;
-        check_static_patterns($line, $file, $ln, \@suspect_lines);
-        check_regex_danger($line, $file, $ln, \@suspect_lines);
-        check_module_versions($line, $file, $ln, \@suspect_lines, \%allowed);
-    }
+
+    open my $fh, '<', $file or do {
+        warn "Can't open $file: $!";
+        return;
+    };
+
+    my @lines = <$fh>;
     close $fh;
+
+    my %allow = load_allowed_versions($allowlist_file);
+    for my $i (0 .. $#lines) {
+        check_static_patterns($lines[$i], $file, $i + 1, \@suspect_lines);
+        check_regex_patterns($lines[$i], $file, $i + 1, \@suspect_lines);
+        check_module_versions($lines[$i], $file, $i + 1, \@suspect_lines, \%allow);
+    }
+
 }, $dir);
 
-if ($verbose && @suspect_lines) {
-    print "[!] Found ", scalar @suspect_lines, " issues\n";
-} elsif ($verbose) {
-    print "[✓] No issues found in $dir\n";
-}
-
-# Output
-if ($format eq 'json') {
-	open my $out, '>', $output or die "Can't write to $output: $!";
-	my @results;
-	for my $entry (@suspect_lines) {
-		my ($file, $line_no, $desc) = @$entry;
-		push @results, {
-			file    => $file,
-			line    => $line_no,
-			message => $desc,
-		};
-	}
-	print $out encode_json(\@results);
-
-	close $out;
-	print "Results saved to $output\n" if($verbose);
-} elsif ($format eq 'txt') {
-    open my $out, '>', $output or die "Can't write to $output: $!";
-    for (@suspect_lines) {
-        my ($file, $line, $msg) = @$_;
-        print $out "$file [$line]: $msg\n";
-    }
-    close $out;
-    print "Text report saved to $output\n" if($verbose);
-} elsif ($format eq 'sarif') {
-    open my $out, '>', $output or die "Can't write to $output: $!";
-
-	my $schema = 'https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0.json';
-
-	my @results_sarif = map {
-	    +{
-		ruleId   => 'perlsec',
-		message  => { text => $_->[2] },
-		locations => [{
-		    physicalLocation => {
-			artifactLocation => {
-			    uri       => $_->[0],
-			    uriBaseId => '%SRCROOT%',
-			},
-			region => {
-			    startLine => $_->[1],
-			}
-		    }
-		}]
-	    }
-	} @suspect_lines;
-
-	my %sarif = (
-	    version => '2.1.0',
-	    '$schema' => $schema,
-	    runs => [{
-		tool => {
-		    driver => {
-			name           => 'PerlSec Scanner',
-			informationUri => 'https://github.com/your-username/perlsec-scanner',
-			rules => [{
-			    id   => 'perlsec',
-			    name => 'Perl static pattern checker',
-			}]
-		    }
-		},
-		results => \@results_sarif,
-	    }]
-	);
-
-
-    print $out encode_json(\%sarif);
-    close $out;
-    print "SARIF report saved to $output\n" if $verbose;
-} elsif ($format eq 'html') {
-    open my $out, '>', $output or die "Can't write to $output: $!";
-
-    my $issue_rows = join "\n", map {
-        my ($file, $line, $message) = @$_;
-        "<tr><td>$file</td><td>$line</td><td>$message</td></tr>"
-    } @suspect_lines;
-
-    my $count = scalar @suspect_lines;
-
+# Group by type if available
 my %grouped;
 for my $entry (@suspect_lines) {
     my ($file, $line, $msg, $type) = @$entry;
@@ -148,83 +65,151 @@ for my $entry (@suspect_lines) {
     push @{ $grouped{$type} }, [$file, $line, $msg];
 }
 
-my $issue_sections = join "\n", map {
-    my $type = $_;
-    my $rows = join "\n", map {
-        my ($f, $l, $m) = @$_;
-        "<tr><td>$f</td><td>$l</td><td>$m</td></tr>"
-    } @{ $grouped{$type} };
+# Output
+if ($format eq 'txt') {
+    open my $out, '>', $output or die "Can't write to $output: $!";
+    for my $entry (@suspect_lines) {
+        print $out "$entry->[0]:$entry->[1]: $entry->[2]\n";
+    }
+    close $out;
+    print "TXT report saved to $output\n" if $verbose;
 
-    <<"HTML"
-<h2>$type</h2>
-<table>
-  <thead><tr><th>File</th><th>Line</th><th>Message</th></tr></thead>
-  <tbody>$rows</tbody>
-</table>
-HTML
-} sort keys %grouped;
+} elsif ($format eq 'json') {
+    open my $out, '>', $output or die "Can't write to $output: $!";
+    my @structured = map {
+        { file => $_->[0], line => $_->[1], message => $_->[2], type => $_->[3] || 'Uncategorized' }
+    } @suspect_lines;
+    print $out encode_json(\@structured);
+    close $out;
+    print "JSON report saved to $output\n" if $verbose;
 
-my $summary_table = join '', map {
-    my $count = scalar @{ $grouped{$_} };
-    "<tr><td>$_</td><td>$count</td></tr>"
-} sort keys %grouped;
+} elsif ($format eq 'sarif') {
+    my $schema = 'https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0.json';
+    my @results_sarif = map {
+        {
+            ruleId   => $_->[3] || 'perlsec',
+            message  => { text => $_->[2] },
+            locations => [{
+                physicalLocation => {
+                    artifactLocation => {
+                        uri       => $_->[0],
+                        uriBaseId => '%SRCROOT%',
+                    },
+                    region => { startLine => $_->[1] }
+                }
+            }]
+        }
+    } @suspect_lines;
 
-$summary_table = <<"HTML";
-<h2>Summary</h2>
-<table>
-  <thead><tr><th>Issue Type</th><th>Count</th></tr></thead>
-  <tbody>$summary_table</tbody>
-</table>
-HTML
+    my %sarif = (
+        version  => '2.1.0',
+        '$schema' => $schema,
+        runs     => [{
+            tool => {
+                driver => {
+                    name           => 'PerlSec Scanner',
+                    informationUri => 'https://github.com/your-username/perlsec-scanner',
+			rules => [ map { { id => $_, name => $_ } } keys %grouped ]
+                }
+            },
+            results => \@results_sarif,
+        }]
+    );
+
+    open my $out, '>', $output or die "Can't write to $output: $!";
+    print $out encode_json(\%sarif);
+    close $out;
+    print "SARIF report saved to $output\n" if $verbose;
+
+} elsif ($format eq 'html') {
+    open my $out, '>', $output or die "Can't write to $output: $!";
+
+    my $summary = join '', map {
+        "<tr><td>$_</td><td>" . scalar @{ $grouped{$_} } . "</td></tr>"
+    } sort keys %grouped;
+
+    my $tables = join '', map {
+        my $type = $_;
+        my $rows = join '', map {
+            "<tr><td>$_->[0]</td><td>$_->[1]</td><td>$_->[2]</td></tr>"
+        } @{ $grouped{$type} };
+        "<h2>$type</h2><table><thead><tr><th>File</th><th>Line</th><th>Message</th></tr></thead><tbody>$rows</tbody></table>"
+    } sort keys %grouped;
+
+    my @files = sort keys %{{ map { $_->[0] => 1 } @suspect_lines }};
+    my @types = sort keys %grouped;
+
+    my $chart_data = join ",\n", map {
+        my $t = $_;
+        my $counts = join ',', map {
+            my $f = $_;
+            scalar grep { $_->[0] eq $f && ($_->[3] || 'Uncategorized') eq $t } @suspect_lines
+        } @files;
+        my $color = sprintf "#%06x", int(rand(0xFFFFFF));
+        "{label: \"$t\", backgroundColor: \"$color\", data: [$counts]}"
+    } @types;
+
+    my $file_labels = join ',', map { "\"$_\"" } @files;
 
     print $out <<"HTML";
 <!DOCTYPE html>
-<html>
-<head>
+<html><head>
   <meta charset="UTF-8">
-  <title>PerlSec Scan Report</title>
+  <title>PerlSec Report</title>
   <style>
     body { font-family: sans-serif; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ccc; padding: 6px; }
+    h1 { margin-top: 0 }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
     th { background: #eee; }
-    .summary { margin-top: 1em; font-weight: bold; }
   </style>
-</head>
-<body>
-  <h1>PerlSec Scan Report</h1>
-  <div class="summary">$count issues found</div>
+</head><body>
+<h1>PerlSec Scan Report</h1>
+<h2>Summary</h2>
+<table><thead><tr><th>Type</th><th>Count</th></tr></thead><tbody>
+$summary
+</tbody></table>
 
-  <canvas id="chart" height="100"></canvas>
+<div style="max-height: 400px;">
+  <canvas id="chart"></canvas>
+</div>
 
-  $summary_table
-  $issue_sections
+$tables
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    const data = {
-      labels: ["Security Issues"],
-      datasets: [{
-        label: "Findings",
-        data: [$count],
-        backgroundColor: ["#d9534f"]
-      }]
-    };
-    new Chart(document.getElementById('chart'), {
-      type: 'bar',
-      data: data,
-      options: {
-        responsive: false,
-        scales: { y: { beginAtZero: true } }
-      }
-    });
-  </script>
-</body>
-</html>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('chart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: [$file_labels],
+    datasets: [
+      $chart_data
+    ]
+  },
+options: {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    title: {
+      display: true,
+      text: 'Findings by File and Type'
+    }
+  },
+  scales: {
+    x: { stacked: true },
+    y: { stacked: true, beginAtZero: true }
+  }
+}
+  
+});
+</script>
+</body></html>
 HTML
 
     close $out;
     print "HTML report saved to $output\n" if $verbose;
+
 } else {
     die "Unknown format: $format\n";
 }

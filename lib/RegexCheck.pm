@@ -1,8 +1,8 @@
 package RegexCheck;
 use Exporter 'import';
-our @EXPORT_OK = qw(check_regex_danger);
+our @EXPORT_OK = qw(check_regex_patterns);
 
-sub check_regex_danger {
+sub check_regex_patterns {
     my ($line, $file, $line_no, $ref) = @_;
 
     push @$ref, [$file, $line_no, "Nested quantifier (.*)+", 'RegexCheck'] if $line =~ /\(\.\*\)\+/;

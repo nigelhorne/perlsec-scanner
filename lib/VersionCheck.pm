@@ -5,7 +5,7 @@ our @EXPORT_OK = qw(check_module_versions load_allowed_versions);
 use MetaCPAN::Client;
 
 sub load_allowed_versions {
-    my $file = shift;
+my $file = shift || 'allowed_modules.txt';
     open my $fh, '<', $file or die "Can't open allowlist $file: $!";
     my %versions;
     while (<$fh>) {
