@@ -6,19 +6,12 @@ permissions:
 
 on:
   push:
-    paths:
-      - '**.pl'
-      - 'lib/**'
-      - 't/**'
-      - 'bin/**'
-      - 'Makefile.PL'
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
   pull_request:
-    paths:
-      - '**.pl'
-      - 'lib/**'
-      - 't/**'
-      - 'bin/**'
-      - 'Makefile.PL'
+
 
 jobs:
   scan:
