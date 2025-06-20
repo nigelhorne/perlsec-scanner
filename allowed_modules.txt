@@ -2,6 +2,11 @@ strict 1.11
 warnings 1.42
 DBI 1.643
 CGI 4.52
-CGI::Info
-LWP::UserAgent
+CGI::Info 1.03
+CHI 0.61
+File::HomeDir 1.006
+File::Path 2.18
 File::Spec 3.78
+LWP::UserAgent 6.78
+Storable 3.32
+WWW::Mechanize::Cached 1.56

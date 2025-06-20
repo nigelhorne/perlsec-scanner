@@ -23,16 +23,16 @@ my %metacpan_cache = -e $cache_file ? %{ retrieve($cache_file) } : ();
 
 # Load allowed modules and their min versions from a file
 sub load_allowed_versions {
-    my $file = shift || 'allowed_modules.txt';
-    open my $fh, '<', $file or die "Can't open allowlist $file: $!";
-    my %allow;
-    while (<$fh>) {
-        next if /^\s*#/;
-        my ($mod, $ver) = split /\s+/, $_;
-        $allow{$mod} = $ver if $mod && $ver;
-    }
-    close $fh;
-    return %allow;
+	my $file = shift || 'allowed_modules.txt';
+	open my $fh, '<', $file or die "Can't open allowlist $file: $!";
+	my %allow;
+	while (<$fh>) {
+		next if /^\s*#/;
+		my ($mod, $ver) = split /\s+/, $_;
+		$allow{$mod} = $ver if $mod && $ver;
+	}
+	close $fh;
+	return %allow;
 }
 
 # Check lines like: use Some::Module VERSION;
