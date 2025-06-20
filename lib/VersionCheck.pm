@@ -2,11 +2,15 @@ package VersionCheck;
 
 use strict;
 use warnings;
+
+use CHI;
 use MetaCPAN::Client;
 use File::Spec;
 use File::Path qw(make_path);
 use File::HomeDir;
+use HTTP::Tiny::Mech;
 use Storable qw(retrieve store);
+use WWW::Mechanize::Cached;
 use Exporter 'import';
 
 our @EXPORT_OK = qw(check_module_versions load_allowed_versions);
@@ -73,7 +77,13 @@ sub get_latest_version {
     }
 
     # fetch fresh
-    my $client = MetaCPAN::Client->new;
+    my $client = MetaCPAN::Client->new(
+            ua => HTTP::Tiny::Mech->new(
+            mechua => WWW::Mechanize::Cached->new(
+              cache => CHI->new(driver => 'File', root_dir => $cache_dir, expires_in => $ttl),
+            ),
+          ),
+	);
     my $ver;
 
     eval {
@@ -91,7 +101,7 @@ sub get_latest_version {
 sub list_cache_status {
     return unless %metacpan_cache;
 
-    print "📦 MetaCPAN Cache Status:\n";
+    print "MetaCPAN Cache Status:\n";
     for my $mod (sort keys %metacpan_cache) {
         my $entry = $metacpan_cache{$mod};
         my $age   = time - ($entry->{timestamp} || 0);
