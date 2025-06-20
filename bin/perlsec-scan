@@ -85,7 +85,7 @@ $allowlist_file = realpath($allowlist_file);
 my @suspect_lines;
 
 find(sub {
-    return unless /\.pl$/;
+    return unless /\.p[lm]$/;
     my $file = $File::Find::name;
     print "[+] Scanning $file\n" if $verbose;
 
