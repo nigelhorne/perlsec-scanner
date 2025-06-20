@@ -55,8 +55,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: perlsec-findings
-          path: findings.${{matrix.perl}}.json  # or findings.html, etc.
+          name: perlsec-findings-${{ matrix.perl }}
+          path: findings.json  # or findings.html, etc.
           retention-days: 7    # optional, default is 90
 
       - name: Annotate PR with PerlSec findings
