@@ -117,13 +117,12 @@ for my $entry (@suspect_lines) {
 
 # Output
 if ($format eq 'txt') {
-    open my $out, '>', $output or die "Can't write to $output: $!";
-    for my $entry (@suspect_lines) {
-        print $out "$entry->[0]:$entry->[1]: $entry->[2]";
-    }
-    close $out;
-    print "TXT report saved to $output\n" if $verbose;
-
+	open my $out, '>', $output or die "Can't write to $output: $!";
+	for my $entry (@suspect_lines) {
+		print $out "$entry->[0]:$entry->[1]: $entry->[2]\n";
+	}
+	close $out;
+	print "TXT report saved to $output\n" if $verbose;
 } elsif ($format eq 'json') {
     open my $out, '>', $output or die "Can't write to $output: $!";
     my @structured = map {

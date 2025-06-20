@@ -19,7 +19,8 @@ sub check_static_patterns
 
 	# This simple substitution removes trailing comments on each line.
 	# TODO: be careful with '#' inside strings.
-	$line =~ s/(["'][^"']*["']|)#.*\n/$1\n/g;
+	$line =~ s/(["'][^"']*["']|)#.*\n/$1/g;
+	chomp $line;
 
 	if($line =~ /
 	   (eval\s+\$\w+|           # risky eval
