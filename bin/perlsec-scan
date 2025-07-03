@@ -157,7 +157,7 @@ if ($format eq 'txt') {
             tool => {
                 driver => {
                     name           => 'PerlSec Scanner',
-                    informationUri => 'https://github.com/your-username/perlsec-scanner',
+                    informationUri => 'https://github.com/nigelhorne/perlsec-scanner',
 			rules => [ map { { id => $_, name => $_ } } keys %grouped ]
                 }
             },
