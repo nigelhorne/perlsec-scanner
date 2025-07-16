@@ -7,6 +7,7 @@ WriteMakefile(
     EXE_FILES    => ['bin/perlsec-scan'],
 PREREQ_PM => {
 	'CHI' => 0,
+	'MetaCPAN::Client' => 0,
     'Getopt::Long'        => 2.50,
     'File::Find'          => 1.37,
     'File::Spec'          => 3.40,
