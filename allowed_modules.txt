@@ -4,6 +4,7 @@ DBI 1.643
 CGI 4.52
 CGI::Info 1.03
 CHI 0.61
+Exporter 5.78
 File::HomeDir 1.006
 File::Path 2.18
 File::Spec 3.78
