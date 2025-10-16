@@ -1,0 +1,262 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use File::Find;
+use Getopt::Long;
+
+my $verbose = 0;
+my $recursive = 0;
+my @files;
+
+GetOptions(
+    'verbose|v' => \$verbose,
+    'recursive|r' => \$recursive,
+) or die "Usage: $0 [-v] [-r] file1.pl file2.pl ...\n";
+
+@files = @ARGV;
+die "Usage: $0 [-v] [-r] file1.pl file2.pl ...\n" unless @files;
+
+my %issues;
+my $total_issues = 0;
+
+# Security and error patterns to check
+my @checks = (
+    {
+        name => 'Taint Mode Not Enabled',
+        pattern => qr/^(?!.*-T)/,
+        check_shebang => 1,
+        severity => 'HIGH',
+        description => 'Script should use -T flag for taint checking'
+    },
+    {
+        name => 'SQL Injection Risk',
+        pattern => qr/\$dbh->(?:do|prepare)\s*\(\s*["'].*?\$|\$dbh->(?:do|prepare)\s*\(\s*qq?\{.*?\$/,
+        severity => 'CRITICAL',
+        description => 'Possible SQL injection - use placeholders instead'
+    },
+    {
+        name => 'Unsafe eval',
+        pattern => qr/eval\s+["']?\$/,
+        severity => 'CRITICAL',
+        description => 'eval with variable input can execute arbitrary code'
+    },
+    {
+        name => 'System Command Injection',
+        pattern => qr/(?:system|exec|`)\s*\(?\s*["']?.*?\$/,
+        severity => 'CRITICAL',
+        description => 'User input in system commands can lead to command injection'
+    },
+    {
+        name => 'Open File Without Error Check',
+        pattern => qr/open\s*\([^)]+\)\s*(?:;|\|\|)/,
+        severity => 'HIGH',
+        description => 'open() should be followed by "or die" error handling'
+    },
+    {
+        name => 'Unvalidated File Path',
+        pattern => qr/open\s*\([^,]+,\s*["']?[<>].*?\$/,
+	skip_pattern => qr/File::Spec->catfile/,
+        severity => 'HIGH',
+        description => 'File path from variable should be validated'
+    },
+    {
+        name => 'Missing strict',
+        pattern => qr/^(?!.*use strict)/m,
+        check_file => 1,
+        severity => 'MEDIUM',
+        description => 'Missing "use strict" pragma'
+    },
+    {
+        name => 'Missing warnings',
+        pattern => qr/^(?!.*use warnings)/m,
+        check_file => 1,
+        severity => 'MEDIUM',
+        description => 'Missing "use warnings" pragma'
+    },
+    {
+        name => 'Symbolic File Handle',
+        pattern => qr/open\s*\(\s*[A-Z_]+\s*,/,
+        severity => 'LOW',
+        description => 'Use lexical filehandles (my $fh) instead of barewords'
+    },
+    {
+        name => 'Unquoted Hash Key',
+        pattern => qr/\{[a-z_]\w*\}/,
+        severity => 'LOW',
+        description => 'Unquoted hash keys can cause subtle bugs'
+    },
+    {
+        name => 'Global Variable Without "our"',
+        pattern => qr/(?<![om]y )\$[A-Z_]{2,}/,
+        severity => 'LOW',
+        description => 'Global variables should be declared with "our"'
+    },
+    {
+        name => 'Potential XXE Attack',
+        pattern => qr/XML::.*->parse\s*\(/,
+        severity => 'HIGH',
+        description => 'XML parsing may be vulnerable to XXE attacks'
+    },
+    {
+        name => 'Hardcoded Password',
+        pattern => qr/(?:password|passwd|pwd)\s*=\s*["'][^"']+["']/i,
+        severity => 'CRITICAL',
+        description => 'Hardcoded passwords should be avoided'
+    },
+    {
+        name => 'Weak Random Number',
+        pattern => qr/\brand\b/,
+        severity => 'MEDIUM',
+        description => 'Use Crypt::Random or /dev/urandom for security-sensitive randomness'
+    },
+    {
+        name => 'CGI Parameter Without Validation',
+        pattern => qr/\$(?:cgi|q)->param\s*\([^)]+\)\s*(?!.*(?:=~|if|unless))/,
+        severity => 'HIGH',
+        description => 'CGI parameters should be validated before use'
+    },
+    {
+        name => 'Use of goto',
+        pattern => qr/\bgoto\b/,
+        severity => 'LOW',
+        description => 'goto should generally be avoided'
+    },
+    {
+        name => 'Deprecated Module',
+        pattern => qr/use\s+(?:CGI|Switch)\b/,
+        severity => 'MEDIUM',
+        description => 'Module is deprecated or discouraged'
+    }
+);
+
+# Process files
+foreach my $file (@files) {
+    if (-d $file && $recursive) {
+        find(sub { scan_file($File::Find::name) if -f && /\.p[lm]$/ }, $file);
+    } elsif (-f $file) {
+        scan_file($file);
+    }
+}
+
+# Print summary
+print_summary();
+
+sub scan_file {
+    my $file = shift;
+    
+    print "\n" . "=" x 60 . "\n" if $verbose;
+    print "Scanning: $file\n" if $verbose;
+    print "=" x 60 . "\n" if $verbose;
+    
+    open my $fh, '<', $file or do {
+        warn "Cannot open $file: $!\n";
+        return;
+    };
+    
+    my @lines = <$fh>;
+    close $fh;
+    
+    my $content = join '', @lines;
+    my $file_issues = 0;
+    
+    foreach my $check (@checks) {
+        if ($check->{check_file}) {
+            # Check entire file content
+            if ($content !~ /$check->{pattern}/) {
+                next if $check->{name} =~ /Not Enabled/; # Skip taint mode for file-level check
+                
+                if ($content !~ /use strict/ && $check->{name} eq 'Missing strict') {
+                    record_issue($file, 1, $check);
+                    $file_issues++;
+                } elsif ($content !~ /use warnings/ && $check->{name} eq 'Missing warnings') {
+                    record_issue($file, 1, $check);
+                    $file_issues++;
+                }
+            }
+        } elsif ($check->{check_shebang}) {
+            # Check shebang line
+            if ($lines[0] =~ /^#!/ && $lines[0] !~ /-T/) {
+                record_issue($file, 1, $check);
+                $file_issues++;
+            }
+        } else {
+            # Check each line
+            for my $i (0 .. $#lines) {
+                my $line = $lines[$i];
+                next if $line =~ /^\s*#/; # Skip comments
+                
+                if ($line =~ /$check->{pattern}/) {
+			# Check if this line or previous few lines use File::Spec
+			my $context_start = $i >= 3 ? $i - 3 : 0;
+			my $context = join('', @lines[$context_start..$i]);
+
+			if ($check->{skip_pattern} && $context =~ /$check->{skip_pattern}/) {
+				next;  # Skip this match
+			}
+			record_issue($file, $i + 1, $check, $line);
+                    $file_issues++;
+                }
+            }
+        }
+    }
+    
+    print "No issues found.\n" if $verbose && $file_issues == 0;
+    $total_issues += $file_issues;
+}
+
+sub record_issue {
+    my ($file, $line_num, $check, $line) = @_;
+    
+    push @{$issues{$file}}, {
+        line => $line_num,
+        check => $check,
+        content => $line
+    };
+    
+    if ($verbose) {
+        print "\n[$check->{severity}] $check->{name}\n";
+        print "  Line $line_num: $check->{description}\n";
+        print "  Code: " . ($line || 'N/A') . "\n" if $line;
+    }
+}
+
+sub print_summary {
+    print "\n" . "=" x 60 . "\n";
+    print "SECURITY SCAN SUMMARY\n";
+    print "=" x 60 . "\n\n";
+    
+    if ($total_issues == 0) {
+        print "✓ No issues found!\n";
+        return;
+    }
+    
+    my %severity_count = (CRITICAL => 0, HIGH => 0, MEDIUM => 0, LOW => 0);
+    
+    foreach my $file (sort keys %issues) {
+        print "File: $file\n";
+        print "-" x 60 . "\n";
+        
+        foreach my $issue (sort { $a->{line} <=> $b->{line} } @{$issues{$file}}) {
+            my $check = $issue->{check};
+            $severity_count{$check->{severity}}++;
+            
+            printf "  Line %4d [%-8s] %s\n", 
+                   $issue->{line}, 
+                   $check->{severity},
+                   $check->{name};
+            
+            unless ($verbose) {
+                print "            $check->{description}\n";
+            }
+        }
+        print "\n";
+    }
+    
+    print "=" x 60 . "\n";
+    print "Total Issues: $total_issues\n";
+    print "  CRITICAL: $severity_count{CRITICAL}\n" if $severity_count{CRITICAL};
+    print "  HIGH:     $severity_count{HIGH}\n" if $severity_count{HIGH};
+    print "  MEDIUM:   $severity_count{MEDIUM}\n" if $severity_count{MEDIUM};
+    print "  LOW:      $severity_count{LOW}\n" if $severity_count{LOW};
+    print "=" x 60 . "\n";
+}
